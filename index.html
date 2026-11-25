@@ -189,9 +189,9 @@
     return state.words[i] + ", " + COLOR_NAMES[state.colors[i]];
   }
 
-  function fitWord(card) {
+  // Largest font size at which this card's word fits (does not change the card).
+  function fitSize(card) {
     var w = card.firstChild;
-    w.style.fontSize = "";
     var avail = card.clientWidth - parseFloat(getComputedStyle(card).paddingLeft) * 2;
     var maxH = card.clientHeight * 0.8;
     var fs = parseFloat(getComputedStyle(w).fontSize);
@@ -200,9 +200,16 @@
       fs = Math.max(6, fs * Math.min(0.97, avail / w.scrollWidth));
       w.style.fontSize = fs + "px";
     }
+    return fs;
   }
 
-  function fitAll() { for (var i = 0; i < cards.length; i++) fitWord(cards[i]); }
+  // One shared font size for every card: the size that fits the longest word.
+  function fitAll() {
+    var i, min = Infinity;
+    for (i = 0; i < cards.length; i++) cards[i].firstChild.style.fontSize = "";
+    for (i = 0; i < cards.length; i++) min = Math.min(min, fitSize(cards[i]));
+    for (i = 0; i < cards.length; i++) cards[i].firstChild.style.fontSize = min + "px";
+  }
 
   function render() {
     for (var i = 0; i < COUNT; i++) {
