@@ -62,9 +62,9 @@
     -webkit-tap-highlight-color: transparent;
   }
   .card .word {
-    display: block; white-space: nowrap;
+    display: block; white-space: pre; text-align: center;
     font-weight: 900; text-transform: uppercase; letter-spacing: 0.02em;
-    font-size: 4.6vw; line-height: 1;
+    font-size: 4.6vw; line-height: 1.05;
   }
   .card[data-c="1"] { background: var(--red); color: #fff; }
   .card[data-c="2"] { background: var(--blue); color: #fff; }
@@ -214,7 +214,8 @@
   function render() {
     for (var i = 0; i < COUNT; i++) {
       var card = cards[i];
-      card.firstChild.textContent = state.words[i];
+      // Multi-word clues ("ICE CREAM") go on two lines.
+      card.firstChild.textContent = state.words[i].trim().split(/\s+/).join("\n");
       card.setAttribute("data-c", state.colors[i]);
       card.setAttribute("aria-label", labelFor(i));
     }
