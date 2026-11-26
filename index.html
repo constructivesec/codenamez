@@ -36,7 +36,19 @@
   }
   .left { display: flex; align-items: center; min-width: 0; }
   .score.red { background: var(--red); }
-  .score.blue { justify-self: end; background: var(--blue); }
+  .right { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+  .score.blue { background: var(--blue); }
+  /* Duet checkbox sits at the left edge of the right region, next to New Game. */
+  #duet { margin-left: 1.2vw; margin-right: auto; display: flex; align-items: center; gap: 1vw; }
+  #duet .box {
+    flex: 0 0 auto; position: relative; width: 4.4vh; height: 4.4vh;
+    border: 0.5vh solid #111; border-radius: 0.7vh; background: #fff;
+  }
+  #duet[aria-checked="true"] .box { background: var(--blue); border-color: var(--blue); }
+  #duet[aria-checked="true"] .box::after {
+    content: ""; position: absolute; left: 1.05vh; top: 0.1vh; width: 1.2vh; height: 2.3vh;
+    border: solid #fff; border-width: 0 0.6vh 0.6vh 0; transform: rotate(45deg);
+  }
   .score .num { display: inline-block; min-width: 1.2em; text-align: right; }
   button {
     font: inherit; cursor: pointer; border: none;
@@ -123,7 +135,10 @@
     <button id="timer" class="hbtn" type="button">Timer</button>
   </div>
   <button id="newGame" class="hbtn" type="button">New Game</button>
-  <div class="score blue" aria-live="polite">BLUE <span class="num" id="blueScore">0</span></div>
+  <div class="right">
+    <button id="duet" class="hbtn" type="button" role="checkbox" aria-checked="false"><span class="box" aria-hidden="true"></span>Duet words</button>
+    <div class="score blue" aria-live="polite">BLUE <span class="num" id="blueScore">0</span></div>
+  </div>
 </header>
 <main id="grid" aria-label="Codenames board"></main>
 
@@ -142,6 +157,8 @@
 (function () {
   "use strict";
   var WORDS = ["AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL", "ANTARCTICA", "APPLE", "ARM", "ATLANTIS", "AUSTRALIA", "AZTEC", "BACK", "BALL", "BAND", "BANK", "BAR", "BARK", "BAT", "BATTERY", "BEACH", "BEAR", "BEAT", "BED", "BEIJING", "BELL", "BELT", "BERLIN", "BERMUDA", "BERRY", "BILL", "BLOCK", "BOARD", "BOLT", "BOMB", "BOND", "BOOM", "BOOT", "BOTTLE", "BOW", "BOX", "BRIDGE", "BRUSH", "BUCK", "BUFFALO", "BUG", "BUGLE", "BUTTON", "CALF", "CANADA", "CAP", "CAPITAL", "CAR", "CARD", "CARROT", "CASINO", "CAST", "CAT", "CELL", "CENTAUR", "CENTER", "CHAIR", "CHANGE", "CHARGE", "CHECK", "CHEST", "CHICK", "CHINA", "CHOCOLATE", "CHURCH", "CIRCLE", "CLIFF", "CLOAK", "CLUB", "CODE", "COLD", "COMIC", "COMPOUND", "CONCERT", "CONDUCTOR", "CONTRACT", "COOK", "COPPER", "COTTON", "COURT", "COVER", "CRANE", "CRASH", "CRICKET", "CROSS", "CROWN", "CYCLE", "CZECH", "DANCE", "DATE", "DAY", "DEATH", "DECK", "DEGREE", "DIAMOND", "DICE", "DINOSAUR", "DISEASE", "DOCTOR", "DOG", "DRAFT", "DRAGON", "DRESS", "DRILL", "DROP", "DUCK", "DWARF", "EAGLE", "EGYPT", "EMBASSY", "ENGINE", "ENGLAND", "EUROPE", "EYE", "FACE", "FAIR", "FALL", "FAN", "FENCE", "FIELD", "FIGHTER", "FIGURE", "FILE", "FILM", "FIRE", "FISH", "FLUTE", "FLY", "FOOT", "FORCE", "FOREST", "FORK", "FRANCE", "GAME", "GAS", "GENIUS", "GERMANY", "GHOST", "GIANT", "GLASS", "GLOVE", "GOLD", "GRACE", "GRASS", "GREECE", "GREEN", "GROUND", "HAM", "HAND", "HAWK", "HEAD", "HEART", "HELICOPTER", "HIMALAYAS", "HOLE", "HOLLYWOOD", "HONEY", "HOOD", "HOOK", "HORN", "HORSE", "HORSESHOE", "HOSPITAL", "HOTEL", "ICE", "ICE CREAM", "INDIA", "IRON", "IVORY", "JACK", "JAM", "JET", "JUPITER", "KANGAROO", "KETCHUP", "KEY", "KID", "KING", "KIWI", "KNIFE", "KNIGHT", "LAB", "LAP", "LASER", "LAWYER", "LEAD", "LEMON", "LEPRECHAUN", "LIFE", "LIGHT", "LIMOUSINE", "LINE", "LINK", "LION", "LITTER", "LOCH NESS", "LOCK", "LOG", "LONDON", "LUCK", "MAIL", "MAMMOTH", "MAPLE", "MARBLE", "MARCH", "MASS", "MATCH", "MERCURY", "MEXICO", "MICROSCOPE", "MILLIONAIRE", "MINE", "MINT", "MISSILE", "MODEL", "MOLE", "MOON", "MOSCOW", "MOUNT", "MOUSE", "MOUTH", "MUG", "NAIL", "NEEDLE", "NET", "NEW YORK", "NIGHT", "NINJA", "NOTE", "NOVEL", "NURSE", "NUT", "OCTOPUS", "OIL", "OLIVE", "OLYMPUS", "OPERA", "ORANGE", "ORGAN", "PALM", "PAN", "PANTS", "PAPER", "PARACHUTE", "PARK", "PART", "PASS", "PASTE", "PENGUIN", "PHOENIX", "PIANO", "PIE", "PILOT", "PIN", "PIPE", "PIRATE", "PISTOL", "PIT", "PITCH", "PLANE", "PLASTIC", "PLATE", "PLATYPUS", "PLAY", "PLOT", "POINT", "POISON", "POLE", "POLICE", "POOL", "PORT", "POST", "POUND", "PRESS", "PRINCESS", "PUMPKIN", "PUPIL", "PYRAMID", "QUEEN", "RABBIT", "RACKET", "RAY", "REVOLUTION", "RING", "ROBIN", "ROBOT", "ROCK", "ROME", "ROOT", "ROSE", "ROULETTE", "ROUND", "ROW", "RULER", "SATELLITE", "SATURN", "SCALE", "SCHOOL", "SCIENTIST", "SCORPION", "SCREEN", "SCUBA DIVER", "SEAL", "SERVER", "SHADOW", "SHAKESPEARE", "SHARK", "SHIP", "SHOE", "SHOP", "SHOT", "SINK", "SKYSCRAPER", "SLIP", "SLUG", "SMUGGLER", "SNOW", "SNOWMAN", "SOCK", "SOLDIER", "SOUL", "SOUND", "SPACE", "SPELL", "SPIDER", "SPIKE", "SPINE", "SPOT", "SPRING", "SPY", "SQUARE", "STADIUM", "STAFF", "STAR", "STATE", "STICK", "STOCK", "STRAW", "STREAM", "STRIKE", "STRING", "SUB", "SUIT", "SUPERHERO", "SWING", "SWITCH", "TABLE", "TABLET", "TAG", "TAIL", "TAP", "TEACHER", "TELESCOPE", "TEMPLE", "THEATER", "THIEF", "THUMB", "TICK", "TIE", "TIME", "TOKYO", "TOOTH", "TORCH", "TOWER", "TRACK", "TRAIN", "TRIANGLE", "TRIP", "TRUNK", "TUBE", "TURKEY", "UNDERTAKER", "UNICORN", "VACUUM", "VAN", "VET", "WAKE", "WALL", "WAR", "WASHER", "WASHINGTON", "WATCH", "WATER", "WAVE", "WEB", "WELL", "WHALE", "WHIP", "WIND", "WITCH", "WORM", "YARD"];
+  // Codenames Duet list (koosvary/codenames word_lists/duet.txt).
+  var DUET_WORDS = ["ACE", "ALASKA", "ANCHOR", "ANT", "ANTHEM", "APRON", "ARMOR", "ARMY", "ASTRONAUT", "ATTIC", "AVALANCHE", "AXE", "BABY", "BACON", "BALLOON", "BANANA", "BARBECUE", "BASS", "BATH", "BATTLE", "BATTLESHIP", "BAY", "BEAM", "BEAN", "BEARD", "BEE", "BEER", "BENCH", "BICYCLE", "BIG BANG", "BIG BEN", "BIKINI", "BISCUIT", "BLACK HOLE", "BLACKSMITH", "BLADE", "BLIND", "BLIZZARD", "BLUES", "BOIL", "BONSAI", "BOOK", "BOSS", "BOWL", "BOWLER", "BOXER", "BRAIN", "BRASS", "BRAZIL", "BREAD", "BREAK", "BRICK", "BRIDE", "BROTHER", "BUBBLE", "BUCKET", "BULB", "BUNK", "BUTTER", "BUTTERFLY", "CABLE", "CAESAR", "CAKE", "CAMP", "CANE", "CAPTAIN", "CASTLE", "CAVE", "CHAIN", "CHALK", "CHEESE", "CHERRY", "CHIP", "CHRISTMAS", "CLEOPATRA", "CLOCK", "CLOUD", "COACH", "COAST", "COFFEE", "COLLAR", "COLUMBUS", "COMB", "COMET", "COMPUTER", "CONE", "COW", "COWBOY", "CRAB", "CRAFT", "CROW", "CRUSADER", "CRYSTAL", "CUCKOO", "CURRY", "DASH", "DELTA", "DENTIST", "DESK", "DIRECTOR", "DISK", "DOLL", "DOLLAR", "DRAWING", "DREAM", "DRESSING", "DRIVER", "DRONE", "DRUM", "DRYER", "DUST", "EAR", "EARTH", "EARTHQUAKE", "EASTER", "EDEN", "EGG", "EINSTEIN", "FARM", "FEVER", "FIDDLE", "FLAG", "FLAT", "FLOOD", "FLOOR", "FOAM", "FOG", "FROG", "FROST", "FUEL", "GANGSTER", "GEAR", "GENIE", "GLACIER", "GLASSES", "GOAT", "GOLDILOCKS", "GOLF", "GOVERNOR", "GREENHOUSE", "GROOM", "GUITAR", "GUM", "GYMNAST", "HAIR", "HALLOWEEN", "HAMBURGER", "HAMMER", "HAWAII", "HELMET", "HERCULES", "HIDE", "HIT", "HOMER", "HOSE", "HOUSE", "ICE AGE", "ICELAND", "IGLOO", "INK", "JAIL", "JELLYFISH", "JEWELER", "JOAN OF ARC", "JOCKEY", "JOKER", "JUDGE", "JUMPER", "KICK", "KILT", "KING ARTHUR", "KISS", "KITCHEN", "KNOT", "KUNG FU", "LACE", "LADDER", "LAUNDRY", "LEATHER", "LEMONADE", "LETTER", "LIGHTNING", "LIP", "LOCUST", "LOVE", "LUMBERJACK", "LUNCH", "MAGAZINE", "MAGICIAN", "MAKEUP", "MANICURE", "MAP", "MARACAS", "MARATHON", "MEDIC", "MEMORY", "MESS", "METER", "MICROWAVE", "MILE", "MILK", "MILL", "MINOTAUR", "MINUTE", "MIRROR", "MISS", "MOHAWK", "MONA LISA", "MONKEY", "MOSES", "MOSQUITO", "MOTHER", "MOUNTIE", "MUD", "MUMMY", "MUSKETEER", "MUSTARD", "NAPOLEON", "NERVE", "NEWTON", "NOAH", "NOSE", "NOTRE DAME", "NYLON", "OASIS", "ONION", "PACIFIC", "PAD", "PADDLE", "PAGE", "PAINT", "PARADE", "PARROT", "PATIENT", "PEA", "PEACH", "PEANUT", "PEARL", "PEN", "PENNY", "PENTAGON", "PEPPER", "PEW", "PIG", "PILLOW", "PINE", "PIZZA", "POCKET", "POLISH", "POLO", "POP", "POPCORN", "POTATO", "POTTER", "POWDER", "PUPPET", "PURSE", "QUACK", "QUARTER", "RADIO", "RAIL", "RAINBOW", "RAM", "RANCH", "RAT", "RAZOR", "RECORD", "REINDEER", "RICE", "RIFLE", "RIP", "RIVER", "ROAD", "RODEO", "ROLL", "ROPE", "RUBBER", "RUSSIA", "RUST", "SACK", "SADDLE", "SAHARA", "SAIL", "SALAD", "SALOON", "SALSA", "SALT", "SAND", "SANTA", "SAW", "SCARECROW", "SCRATCH", "SCROLL", "SECOND", "SHAMPOO", "SHED", "SHEET", "SHELL", "SHERLOCK", "SHERWOOD", "SHOOT", "SHORTS", "SHOULDER", "SHOWER", "SIGN", "SILK", "SISTER", "SKATES", "SKI", "SKULL", "SLED", "SLEEP", "SLING", "SLIPPER", "SLOTH", "SMOKE", "SMOOTHIE", "SNAKE", "SNAP", "SOAP", "SOUP", "SPHINX", "SPIRIT", "SPOON", "SPRAY", "SPURS", "SQUASH", "SQUIRREL", "ST.PATRICK", "STABLE", "STAMP", "STEAM", "STEEL", "STEP", "STETHOSCOPE", "STICKER", "STORM", "STORY", "STREET", "SUGAR", "SUMO", "SUN", "SWAMP", "SWEAT", "SWORD", "TANK", "TASTE", "TATTOO", "TEA", "TEAM", "TEAR", "TEXAS", "THUNDER", "TIGER", "TIN", "TIP", "TIPI", "TOAST", "TORNADO", "TRICK", "TROLL", "TUNNEL", "TURTLE", "TUTU", "TUXEDO", "UNIVERITY", "VALENTINE", "VAMPIRE", "VENUS", "VIKING", "VIOLET", "VIRUS", "VOLCANO", "VOLUME", "WAGON", "WAITRESS", "WALRUS", "WEDDING", "WEREWOLF", "WHEEL", "WHEELCHAIR", "WHISTLE", "WINDOW", "WING", "WISH", "WIZARD", "WONDERLAND", "WOOL", "YELLOWSTONE", "ZOMBIE"];
 
   var COLOR_NAMES = ["beige", "red", "blue", "grey", "black"];
   var STORAGE_KEY = "codenames-tv-board-v1";
@@ -152,7 +169,9 @@
   var blueEl = document.getElementById("blueScore");
   var newGameBtn = document.getElementById("newGame");
   var timerBtn = document.getElementById("timer");
-  var headerBtns = [timerBtn, newGameBtn];
+  var duetBox = document.getElementById("duet");
+  var headerBtns = [timerBtn, newGameBtn, duetBox];
+  var useDuet = false; // Which list the NEXT New Game draws from; never changes the current board.
   var overlay = document.getElementById("overlay");
   var cancelBtn = document.getElementById("cancelBtn");
   var confirmBtn = document.getElementById("confirmBtn");
@@ -163,7 +182,7 @@
   var lastFocusBeforeModal = null;
 
   function pickWords() {
-    var pool = WORDS.slice();
+    var pool = (useDuet ? DUET_WORDS : WORDS).slice();
     for (var i = pool.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
       var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
@@ -172,7 +191,9 @@
   }
 
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ words: state.words, colors: state.colors, duet: useDuet }));
+    } catch (e) {}
   }
 
   function load() {
@@ -180,6 +201,7 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       var s = JSON.parse(raw);
+      if (s && s.duet === true) useDuet = true; // Keep the checkbox even if the board data is unusable.
       if (!s || !Array.isArray(s.words) || !Array.isArray(s.colors)) return null;
       if (s.words.length !== COUNT || s.colors.length !== COUNT) return null;
       for (var i = 0; i < COUNT; i++) {
@@ -196,6 +218,29 @@
     for (var i = 0; i < COUNT; i++) colors.push(0);
     return { words: pickWords(), colors: colors };
   }
+
+  // Multi-word clues go on two lines, split where the lines are most even ("JOAN" / "OF ARC").
+  function twoLines(word) {
+    var parts = word.trim().split(/\s+/);
+    if (parts.length < 2) return parts[0] || "";
+    var best = 1, bestLen = Infinity;
+    for (var k = 1; k < parts.length; k++) {
+      var len = Math.max(parts.slice(0, k).join(" ").length, parts.slice(k).join(" ").length);
+      if (len < bestLen) { bestLen = len; best = k; }
+    }
+    return parts.slice(0, best).join(" ") + "\n" + parts.slice(best).join(" ");
+  }
+
+  function renderDuet() {
+    duetBox.setAttribute("aria-checked", useDuet ? "true" : "false");
+    duetBox.setAttribute("aria-label", "Duet words, " + (useDuet ? "on" : "off") + ", applies to the next new game");
+  }
+
+  duetBox.addEventListener("click", function () {
+    useDuet = !useDuet;
+    renderDuet();
+    save();
+  });
 
   function updateScores() {
     var r = 0, b = 0;
@@ -237,7 +282,7 @@
     for (var i = 0; i < COUNT; i++) {
       var card = cards[i];
       // Multi-word clues ("ICE CREAM") go on two lines.
-      card.firstChild.textContent = state.words[i].trim().split(/\s+/).join("\n");
+      card.firstChild.textContent = twoLines(state.words[i]);
       card.setAttribute("data-c", state.colors[i]);
       card.setAttribute("aria-label", labelFor(i));
     }
@@ -501,7 +546,8 @@
     timerBtn.style.minWidth = (w / window.innerHeight * 100) + "vh";
   })();
   buildGrid();
-  state = load() || newState();
+  state = load() || newState(); // load() also restores the Duet checkbox before a fresh deal.
+  renderDuet();
   save();
   render();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
