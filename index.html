@@ -14,6 +14,9 @@
     --bg: #111418;
     --focus: #FFD400;
     --gap: 1.1vh;
+    /* Top-bar text size. Every top-bar dimension is a multiple of it, so the whole bar
+       scales as one. Capped by width too, so it fits 4:3 tablets and portrait screens. */
+    --hfs: min(3.4vh, 2.3vw);
   }
   * { box-sizing: border-box; }
   html, body {
@@ -26,12 +29,12 @@
     height: 100vh; padding: 1.4vh 1.2vw; gap: 1.4vh;
   }
   header {
-    flex: 0 0 auto; height: 10vh;
+    flex: 0 0 auto;
     display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   }
   .score {
-    font-weight: 900; font-size: 5.4vh; letter-spacing: 0.04em;
-    padding: 0.6vh 1.2vw; border-radius: 1vh; line-height: 1.1;
+    font-weight: 900; font-size: calc(var(--hfs) * 1.29); letter-spacing: 0.04em;
+    padding: calc(var(--hfs) * 0.14) calc(var(--hfs) * 0.5); border-radius: calc(var(--hfs) * 0.24); line-height: 1.1;
     white-space: nowrap;
   }
   .left { display: flex; align-items: center; min-width: 0; }
@@ -39,32 +42,37 @@
   .right { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
   .score.blue { background: var(--blue); }
   /* Duet checkbox sits at the left edge of the right region, next to New Game. */
-  #duet { margin-left: 1.2vw; margin-right: auto; display: flex; align-items: center; gap: 1vw; }
+  #duet {
+    margin-left: calc(var(--hfs) * 0.5); margin-right: auto;
+    display: flex; align-items: center; gap: calc(var(--hfs) * 0.42);
+  }
   #duet .box {
-    flex: 0 0 auto; position: relative; width: 4.4vh; height: 4.4vh;
-    border: 0.5vh solid #111; border-radius: 0.7vh; background: #fff;
+    flex: 0 0 auto; position: relative; width: calc(var(--hfs) * 1.05); height: calc(var(--hfs) * 1.05);
+    border: calc(var(--hfs) * 0.12) solid #111; border-radius: calc(var(--hfs) * 0.17); background: #fff;
   }
   #duet[aria-checked="true"] .box { background: var(--blue); border-color: var(--blue); }
   #duet[aria-checked="true"] .box::after {
-    content: ""; position: absolute; left: 1.05vh; top: 0.1vh; width: 1.2vh; height: 2.3vh;
-    border: solid #fff; border-width: 0 0.6vh 0.6vh 0; transform: rotate(45deg);
+    content: ""; position: absolute; left: calc(var(--hfs) * 0.25); top: calc(var(--hfs) * 0.02);
+    width: calc(var(--hfs) * 0.29); height: calc(var(--hfs) * 0.55);
+    border: solid #fff; border-width: 0 calc(var(--hfs) * 0.14) calc(var(--hfs) * 0.14) 0; transform: rotate(45deg);
   }
   .score .num { display: inline-block; min-width: 1.2em; text-align: right; }
   button {
     font: inherit; cursor: pointer; border: none;
   }
   .hbtn {
-    font-size: 4.2vh; font-weight: 800; letter-spacing: 0.02em;
-    height: 8vh; padding: 0 1.8vw; line-height: 1; border-radius: 1vh;
+    font-size: var(--hfs); font-weight: 800; letter-spacing: 0.02em;
+    height: calc(var(--hfs) * 1.9); padding: 0 calc(var(--hfs) * 0.76); line-height: 1;
+    border-radius: calc(var(--hfs) * 0.24);
     background: #F4F1EA; color: #111; white-space: nowrap;
   }
   .hbtn:active { transform: scale(0.97); }
   /* Timer sits at the right edge of the left region, next to New Game. */
   #timer {
-    margin-left: auto; margin-right: 1.2vw;
+    margin-left: auto; margin-right: calc(var(--hfs) * 0.5);
     font-variant-numeric: tabular-nums;
   }
-  #timer.running { font-size: 6.2vh; font-weight: 900; letter-spacing: 0.04em; }
+  #timer.running { font-size: calc(var(--hfs) * 1.48); font-weight: 900; letter-spacing: 0.04em; }
   #timer.warn { color: var(--red); animation: pulse 1s ease-in-out infinite; }
   #timer.done { color: #fff; animation: flash 0.5s steps(1, end) infinite; }
   @keyframes pulse {
@@ -535,7 +543,7 @@
   });
 
   resetTimer();
-  // Lock the timer's width to its widest state (in vh, so it scales) so the bar never shifts while counting.
+  // Lock the timer's width to its widest state so the bar never shifts while counting.
   (function () {
     var w = 0, states = [[TIMER_IDLE, null], ["0:00", ["running"]], ["TIME!", ["running", "done"]]];
     for (var i = 0; i < states.length; i++) {
@@ -543,7 +551,8 @@
       w = Math.max(w, timerBtn.offsetWidth);
     }
     resetTimer();
-    timerBtn.style.minWidth = (w / window.innerHeight * 100) + "vh";
+    // Stored as a multiple of --hfs so it stays right after a resize or tablet rotation.
+    timerBtn.style.minWidth = "calc(var(--hfs) * " + (w / parseFloat(getComputedStyle(newGameBtn).fontSize)).toFixed(3) + ")";
   })();
   buildGrid();
   state = load() || newState(); // load() also restores the Duet checkbox before a fresh deal.
