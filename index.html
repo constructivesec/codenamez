@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codenames Board</title>
+<style>
+  :root {
+    --beige: #E8DCC0;
+    --red: #C8372D;
+    --blue: #2E5FA8;
+    --grey: #8A8A8A;
+    --black: #1A1A1A;
+    --bg: #111418;
+    --focus: #FFD400;
+    --gap: 1.1vh;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: #fff;
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  body {
+    display: flex; flex-direction: column;
+    height: 100vh; padding: 1.4vh 1.2vw; gap: 1.4vh;
+  }
+  header {
+    flex: 0 0 auto; height: 10vh;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  }
+  .score {
+    font-weight: 900; font-size: 5.4vh; letter-spacing: 0.04em;
+    padding: 0.6vh 1.2vw; border-radius: 1vh; line-height: 1.1;
+    white-space: nowrap;
+  }
+  .left { display: flex; align-items: center; min-width: 0; }
+  .score.red { background: var(--red); }
+  .right { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+  .score.blue { background: var(--blue); }
+  /* Duet checkbox sits at the left edge of the right region, next to New Game. */
+  #duet { margin-left: 1.2vw; margin-right: auto; display: flex; align-items: center; gap: 1vw; }
+  #duet .box {
+    flex: 0 0 auto; position: relative; width: 4.4vh; height: 4.4vh;
+    border: 0.5vh solid #111; border-radius: 0.7vh; background: #fff;
+  }
+  #duet[aria-checked="true"] .box { background: var(--blue); border-color: var(--blue); }
+  #duet[aria-checked="true"] .box::after {
+    content: ""; position: absolute; left: 1.05vh; top: 0.1vh; width: 1.2vh; height: 2.3vh;
+    border: solid #fff; border-width: 0 0.6vh 0.6vh 0; transform: rotate(45deg);
+  }
+  .score .num { display: inline-block; min-width: 1.2em; text-align: right; }
+  button {
+    font: inherit; cursor: pointer; border: none;
+  }
+  .hbtn {
+    font-size: 4.2vh; font-weight: 800; letter-spacing: 0.02em;
+    height: 8vh; padding: 0 1.8vw; line-height: 1; border-radius: 1vh;
+    background: #F4F1EA; color: #111; white-space: nowrap;
+  }
+  .hbtn:active { transform: scale(0.97); }
+  /* Timer sits at the right edge of the left region, next to New Game. */
+  #timer {
+    margin-left: auto; margin-right: 1.2vw;
+    font-variant-numeric: tabular-nums;
+  }
+  #timer.running { font-size: 6.2vh; font-weight: 900; letter-spacing: 0.04em; }
+  #timer.warn { color: var(--red); animation: pulse 1s ease-in-out infinite; }
+  #timer.done { color: #fff; animation: flash 0.5s steps(1, end) infinite; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes flash {
+    0% { background: var(--red); }
+    50% { background: var(--black); }
+  }
+  main {
+    flex: 1 1 auto; min-height: 0;
+    display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr);
+    gap: var(--gap);
+  }
+  .card {
+    min-width: 0; min-height: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 0.8vw; border-radius: 1.2vh;
+    background: var(--beige); color: #111;
+    border: 0.35vh solid rgba(0,0,0,0.25);
+    transition: background-color 200ms ease, color 200ms ease;
+    user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card .word {
+    display: block; white-space: pre; text-align: center;
+    font-weight: 900; text-transform: uppercase; letter-spacing: 0.02em;
+    font-size: 4.6vw; line-height: 1.05;
+  }
+  .card[data-c="1"] { background: var(--red); color: #fff; }
+  .card[data-c="2"] { background: var(--blue); color: #fff; }
+  .card[data-c="3"] { background: var(--grey); color: #111; }
+  .card[data-c="4"] { background: var(--black); color: #fff; border-color: #444; }
+  .card:focus, .hbtn:focus, .modal button:focus { outline: none; }
+  .card:focus-visible, .hbtn:focus-visible, .modal button:focus-visible,
+  .card.kbd:focus, .hbtn.kbd:focus {
+    outline: 0.7vh solid var(--focus); outline-offset: 0.3vh;
+    box-shadow: 0 0 0 1.4vh rgba(255,212,0,0.25);
+  }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+    display: none; align-items: center; justify-content: center; z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #F4F1EA; color: #111; border-radius: 2vh;
+    padding: 5vh 4vw; text-align: center; max-width: 70vw;
+    box-shadow: 0 2vh 6vh rgba(0,0,0,0.6);
+  }
+  .modal h2 { margin: 0 0 1.5vh; font-size: 6vh; font-weight: 900; }
+  .modal p { margin: 0 0 4vh; font-size: 3.4vh; }
+  .modal .actions { display: flex; gap: 2.5vw; justify-content: center; }
+  .modal button {
+    font-size: 4vh; font-weight: 800; padding: 1.6vh 3vw; border-radius: 1vh;
+    min-width: 14vw;
+  }
+  #cancelBtn { background: #D6D0C2; color: #111; }
+  #confirmBtn { background: var(--red); color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <div class="score red" aria-live="polite">RED <span class="num" id="redScore">0</span></div>
+    <button id="timer" class="hbtn" type="button">Timer</button>
+  </div>
+  <button id="newGame" class="hbtn" type="button">New Game</button>
+  <div class="right">
+    <button id="duet" class="hbtn" type="button" role="checkbox" aria-checked="false"><span class="box" aria-hidden="true"></span>Duet words</button>
+    <div class="score blue" aria-live="polite">BLUE <span class="num" id="blueScore">0</span></div>
+  </div>
+</header>
+<main id="grid" aria-label="Codenames board"></main>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <h2 id="modalTitle">Start a new game?</h2>
+    <p>This deals 25 new words and clears all card colors.</p>
+    <div class="actions">
+      <button id="cancelBtn" type="button">Cancel</button>
+      <button id="confirmBtn" type="button">New Game</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var WORDS = ["AFRICA", "AGENT", "AIR", "ALIEN", "ALPS", "AMAZON", "AMBULANCE", "AMERICA", "ANGEL", "ANTARCTICA", "APPLE", "ARM", "ATLANTIS", "AUSTRALIA", "AZTEC", "BACK", "BALL", "BAND", "BANK", "BAR", "BARK", "BAT", "BATTERY", "BEACH", "BEAR", "BEAT", "BED", "BEIJING", "BELL", "BELT", "BERLIN", "BERMUDA", "BERRY", "BILL", "BLOCK", "BOARD", "BOLT", "BOMB", "BOND", "BOOM", "BOOT", "BOTTLE", "BOW", "BOX", "BRIDGE", "BRUSH", "BUCK", "BUFFALO", "BUG", "BUGLE", "BUTTON", "CALF", "CANADA", "CAP", "CAPITAL", "CAR", "CARD", "CARROT", "CASINO", "CAST", "CAT", "CELL", "CENTAUR", "CENTER", "CHAIR", "CHANGE", "CHARGE", "CHECK", "CHEST", "CHICK", "CHINA", "CHOCOLATE", "CHURCH", "CIRCLE", "CLIFF", "CLOAK", "CLUB", "CODE", "COLD", "COMIC", "COMPOUND", "CONCERT", "CONDUCTOR", "CONTRACT", "COOK", "COPPER", "COTTON", "COURT", "COVER", "CRANE", "CRASH", "CRICKET", "CROSS", "CROWN", "CYCLE", "CZECH", "DANCE", "DATE", "DAY", "DEATH", "DECK", "DEGREE", "DIAMOND", "DICE", "DINOSAUR", "DISEASE", "DOCTOR", "DOG", "DRAFT", "DRAGON", "DRESS", "DRILL", "DROP", "DUCK", "DWARF", "EAGLE", "EGYPT", "EMBASSY", "ENGINE", "ENGLAND", "EUROPE", "EYE", "FACE", "FAIR", "FALL", "FAN", "FENCE", "FIELD", "FIGHTER", "FIGURE", "FILE", "FILM", "FIRE", "FISH", "FLUTE", "FLY", "FOOT", "FORCE", "FOREST", "FORK", "FRANCE", "GAME", "GAS", "GENIUS", "GERMANY", "GHOST", "GIANT", "GLASS", "GLOVE", "GOLD", "GRACE", "GRASS", "GREECE", "GREEN", "GROUND", "HAM", "HAND", "HAWK", "HEAD", "HEART", "HELICOPTER", "HIMALAYAS", "HOLE", "HOLLYWOOD", "HONEY", "HOOD", "HOOK", "HORN", "HORSE", "HORSESHOE", "HOSPITAL", "HOTEL", "ICE", "ICE CREAM", "INDIA", "IRON", "IVORY", "JACK", "JAM", "JET", "JUPITER", "KANGAROO", "KETCHUP", "KEY", "KID", "KING", "KIWI", "KNIFE", "KNIGHT", "LAB", "LAP", "LASER", "LAWYER", "LEAD", "LEMON", "LEPRECHAUN", "LIFE", "LIGHT", "LIMOUSINE", "LINE", "LINK", "LION", "LITTER", "LOCH NESS", "LOCK", "LOG", "LONDON", "LUCK", "MAIL", "MAMMOTH", "MAPLE", "MARBLE", "MARCH", "MASS", "MATCH", "MERCURY", "MEXICO", "MICROSCOPE", "MILLIONAIRE", "MINE", "MINT", "MISSILE", "MODEL", "MOLE", "MOON", "MOSCOW", "MOUNT", "MOUSE", "MOUTH", "MUG", "NAIL", "NEEDLE", "NET", "NEW YORK", "NIGHT", "NINJA", "NOTE", "NOVEL", "NURSE", "NUT", "OCTOPUS", "OIL", "OLIVE", "OLYMPUS", "OPERA", "ORANGE", "ORGAN", "PALM", "PAN", "PANTS", "PAPER", "PARACHUTE", "PARK", "PART", "PASS", "PASTE", "PENGUIN", "PHOENIX", "PIANO", "PIE", "PILOT", "PIN", "PIPE", "PIRATE", "PISTOL", "PIT", "PITCH", "PLANE", "PLASTIC", "PLATE", "PLATYPUS", "PLAY", "PLOT", "POINT", "POISON", "POLE", "POLICE", "POOL", "PORT", "POST", "POUND", "PRESS", "PRINCESS", "PUMPKIN", "PUPIL", "PYRAMID", "QUEEN", "RABBIT", "RACKET", "RAY", "REVOLUTION", "RING", "ROBIN", "ROBOT", "ROCK", "ROME", "ROOT", "ROSE", "ROULETTE", "ROUND", "ROW", "RULER", "SATELLITE", "SATURN", "SCALE", "SCHOOL", "SCIENTIST", "SCORPION", "SCREEN", "SCUBA DIVER", "SEAL", "SERVER", "SHADOW", "SHAKESPEARE", "SHARK", "SHIP", "SHOE", "SHOP", "SHOT", "SINK", "SKYSCRAPER", "SLIP", "SLUG", "SMUGGLER", "SNOW", "SNOWMAN", "SOCK", "SOLDIER", "SOUL", "SOUND", "SPACE", "SPELL", "SPIDER", "SPIKE", "SPINE", "SPOT", "SPRING", "SPY", "SQUARE", "STADIUM", "STAFF", "STAR", "STATE", "STICK", "STOCK", "STRAW", "STREAM", "STRIKE", "STRING", "SUB", "SUIT", "SUPERHERO", "SWING", "SWITCH", "TABLE", "TABLET", "TAG", "TAIL", "TAP", "TEACHER", "TELESCOPE", "TEMPLE", "THEATER", "THIEF", "THUMB", "TICK", "TIE", "TIME", "TOKYO", "TOOTH", "TORCH", "TOWER", "TRACK", "TRAIN", "TRIANGLE", "TRIP", "TRUNK", "TUBE", "TURKEY", "UNDERTAKER", "UNICORN", "VACUUM", "VAN", "VET", "WAKE", "WALL", "WAR", "WASHER", "WASHINGTON", "WATCH", "WATER", "WAVE", "WEB", "WELL", "WHALE", "WHIP", "WIND", "WITCH", "WORM", "YARD"];
+  // Codenames Duet list (koosvary/codenames word_lists/duet.txt).
+  var DUET_WORDS = ["ACE", "ALASKA", "ANCHOR", "ANT", "ANTHEM", "APRON", "ARMOR", "ARMY", "ASTRONAUT", "ATTIC", "AVALANCHE", "AXE", "BABY", "BACON", "BALLOON", "BANANA", "BARBECUE", "BASS", "BATH", "BATTLE", "BATTLESHIP", "BAY", "BEAM", "BEAN", "BEARD", "BEE", "BEER", "BENCH", "BICYCLE", "BIG BANG", "BIG BEN", "BIKINI", "BISCUIT", "BLACK HOLE", "BLACKSMITH", "BLADE", "BLIND", "BLIZZARD", "BLUES", "BOIL", "BONSAI", "BOOK", "BOSS", "BOWL", "BOWLER", "BOXER", "BRAIN", "BRASS", "BRAZIL", "BREAD", "BREAK", "BRICK", "BRIDE", "BROTHER", "BUBBLE", "BUCKET", "BULB", "BUNK", "BUTTER", "BUTTERFLY", "CABLE", "CAESAR", "CAKE", "CAMP", "CANE", "CAPTAIN", "CASTLE", "CAVE", "CHAIN", "CHALK", "CHEESE", "CHERRY", "CHIP", "CHRISTMAS", "CLEOPATRA", "CLOCK", "CLOUD", "COACH", "COAST", "COFFEE", "COLLAR", "COLUMBUS", "COMB", "COMET", "COMPUTER", "CONE", "COW", "COWBOY", "CRAB", "CRAFT", "CROW", "CRUSADER", "CRYSTAL", "CUCKOO", "CURRY", "DASH", "DELTA", "DENTIST", "DESK", "DIRECTOR", "DISK", "DOLL", "DOLLAR", "DRAWING", "DREAM", "DRESSING", "DRIVER", "DRONE", "DRUM", "DRYER", "DUST", "EAR", "EARTH", "EARTHQUAKE", "EASTER", "EDEN", "EGG", "EINSTEIN", "FARM", "FEVER", "FIDDLE", "FLAG", "FLAT", "FLOOD", "FLOOR", "FOAM", "FOG", "FROG", "FROST", "FUEL", "GANGSTER", "GEAR", "GENIE", "GLACIER", "GLASSES", "GOAT", "GOLDILOCKS", "GOLF", "GOVERNOR", "GREENHOUSE", "GROOM", "GUITAR", "GUM", "GYMNAST", "HAIR", "HALLOWEEN", "HAMBURGER", "HAMMER", "HAWAII", "HELMET", "HERCULES", "HIDE", "HIT", "HOMER", "HOSE", "HOUSE", "ICE AGE", "ICELAND", "IGLOO", "INK", "JAIL", "JELLYFISH", "JEWELER", "JOAN OF ARC", "JOCKEY", "JOKER", "JUDGE", "JUMPER", "KICK", "KILT", "KING ARTHUR", "KISS", "KITCHEN", "KNOT", "KUNG FU", "LACE", "LADDER", "LAUNDRY", "LEATHER", "LEMONADE", "LETTER", "LIGHTNING", "LIP", "LOCUST", "LOVE", "LUMBERJACK", "LUNCH", "MAGAZINE", "MAGICIAN", "MAKEUP", "MANICURE", "MAP", "MARACAS", "MARATHON", "MEDIC", "MEMORY", "MESS", "METER", "MICROWAVE", "MILE", "MILK", "MILL", "MINOTAUR", "MINUTE", "MIRROR", "MISS", "MOHAWK", "MONA LISA", "MONKEY", "MOSES", "MOSQUITO", "MOTHER", "MOUNTIE", "MUD", "MUMMY", "MUSKETEER", "MUSTARD", "NAPOLEON", "NERVE", "NEWTON", "NOAH", "NOSE", "NOTRE DAME", "NYLON", "OASIS", "ONION", "PACIFIC", "PAD", "PADDLE", "PAGE", "PAINT", "PARADE", "PARROT", "PATIENT", "PEA", "PEACH", "PEANUT", "PEARL", "PEN", "PENNY", "PENTAGON", "PEPPER", "PEW", "PIG", "PILLOW", "PINE", "PIZZA", "POCKET", "POLISH", "POLO", "POP", "POPCORN", "POTATO", "POTTER", "POWDER", "PUPPET", "PURSE", "QUACK", "QUARTER", "RADIO", "RAIL", "RAINBOW", "RAM", "RANCH", "RAT", "RAZOR", "RECORD", "REINDEER", "RICE", "RIFLE", "RIP", "RIVER", "ROAD", "RODEO", "ROLL", "ROPE", "RUBBER", "RUSSIA", "RUST", "SACK", "SADDLE", "SAHARA", "SAIL", "SALAD", "SALOON", "SALSA", "SALT", "SAND", "SANTA", "SAW", "SCARECROW", "SCRATCH", "SCROLL", "SECOND", "SHAMPOO", "SHED", "SHEET", "SHELL", "SHERLOCK", "SHERWOOD", "SHOOT", "SHORTS", "SHOULDER", "SHOWER", "SIGN", "SILK", "SISTER", "SKATES", "SKI", "SKULL", "SLED", "SLEEP", "SLING", "SLIPPER", "SLOTH", "SMOKE", "SMOOTHIE", "SNAKE", "SNAP", "SOAP", "SOUP", "SPHINX", "SPIRIT", "SPOON", "SPRAY", "SPURS", "SQUASH", "SQUIRREL", "ST.PATRICK", "STABLE", "STAMP", "STEAM", "STEEL", "STEP", "STETHOSCOPE", "STICKER", "STORM", "STORY", "STREET", "SUGAR", "SUMO", "SUN", "SWAMP", "SWEAT", "SWORD", "TANK", "TASTE", "TATTOO", "TEA", "TEAM", "TEAR", "TEXAS", "THUNDER", "TIGER", "TIN", "TIP", "TIPI", "TOAST", "TORNADO", "TRICK", "TROLL", "TUNNEL", "TURTLE", "TUTU", "TUXEDO", "UNIVERITY", "VALENTINE", "VAMPIRE", "VENUS", "VIKING", "VIOLET", "VIRUS", "VOLCANO", "VOLUME", "WAGON", "WAITRESS", "WALRUS", "WEDDING", "WEREWOLF", "WHEEL", "WHEELCHAIR", "WHISTLE", "WINDOW", "WING", "WISH", "WIZARD", "WONDERLAND", "WOOL", "YELLOWSTONE", "ZOMBIE"];
+
+  var COLOR_NAMES = ["beige", "red", "blue", "grey", "black"];
+  var STORAGE_KEY = "codenames-tv-board-v1";
+  var SIZE = 5, COUNT = 25;
+
+  var grid = document.getElementById("grid");
+  var redEl = document.getElementById("redScore");
+  var blueEl = document.getElementById("blueScore");
+  var newGameBtn = document.getElementById("newGame");
+  var timerBtn = document.getElementById("timer");
+  var duetBox = document.getElementById("duet");
+  var headerBtns = [timerBtn, newGameBtn, duetBox];
+  var useDuet = false; // Which list the NEXT New Game draws from; never changes the current board.
+  var overlay = document.getElementById("overlay");
+  var cancelBtn = document.getElementById("cancelBtn");
+  var confirmBtn = document.getElementById("confirmBtn");
+
+  var state = { words: [], colors: [] };
+  var cards = [];
+  var focusIndex = 0;
+  var lastFocusBeforeModal = null;
+
+  function pickWords() {
+    var pool = (useDuet ? DUET_WORDS : WORDS).slice();
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, COUNT);
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ words: state.words, colors: state.colors, duet: useDuet }));
+    } catch (e) {}
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (s && s.duet === true) useDuet = true; // Keep the checkbox even if the board data is unusable.
+      if (!s || !Array.isArray(s.words) || !Array.isArray(s.colors)) return null;
+      if (s.words.length !== COUNT || s.colors.length !== COUNT) return null;
+      for (var i = 0; i < COUNT; i++) {
+        if (typeof s.words[i] !== "string" || !s.words[i]) return null;
+        var c = s.colors[i];
+        if (c !== 0 && c !== 1 && c !== 2 && c !== 3 && c !== 4) return null;
+      }
+      return { words: s.words, colors: s.colors };
+    } catch (e) { return null; }
+  }
+
+  function newState() {
+    var colors = [];
+    for (var i = 0; i < COUNT; i++) colors.push(0);
+    return { words: pickWords(), colors: colors };
+  }
+
+  // Multi-word clues go on two lines, split where the lines are most even ("JOAN" / "OF ARC").
+  function twoLines(word) {
+    var parts = word.trim().split(/\s+/);
+    if (parts.length < 2) return parts[0] || "";
+    var best = 1, bestLen = Infinity;
+    for (var k = 1; k < parts.length; k++) {
+      var len = Math.max(parts.slice(0, k).join(" ").length, parts.slice(k).join(" ").length);
+      if (len < bestLen) { bestLen = len; best = k; }
+    }
+    return parts.slice(0, best).join(" ") + "\n" + parts.slice(best).join(" ");
+  }
+
+  function renderDuet() {
+    duetBox.setAttribute("aria-checked", useDuet ? "true" : "false");
+    duetBox.setAttribute("aria-label", "Duet words, " + (useDuet ? "on" : "off") + ", applies to the next new game");
+  }
+
+  duetBox.addEventListener("click", function () {
+    useDuet = !useDuet;
+    renderDuet();
+    save();
+  });
+
+  function updateScores() {
+    var r = 0, b = 0;
+    for (var i = 0; i < COUNT; i++) {
+      if (state.colors[i] === 1) r++;
+      else if (state.colors[i] === 2) b++;
+    }
+    redEl.textContent = r;
+    blueEl.textContent = b;
+  }
+
+  function labelFor(i) {
+    return state.words[i] + ", " + COLOR_NAMES[state.colors[i]];
+  }
+
+  // Largest font size at which this card's word fits (does not change the card).
+  function fitSize(card) {
+    var w = card.firstChild;
+    var avail = card.clientWidth - parseFloat(getComputedStyle(card).paddingLeft) * 2;
+    var maxH = card.clientHeight * 0.8;
+    var fs = parseFloat(getComputedStyle(w).fontSize);
+    var guard = 0;
+    while ((w.scrollWidth > avail || w.offsetHeight > maxH) && fs > 6 && guard++ < 200) {
+      fs = Math.max(6, fs * Math.min(0.97, avail / w.scrollWidth));
+      w.style.fontSize = fs + "px";
+    }
+    return fs;
+  }
+
+  // One shared font size for every card: the size that fits the longest word.
+  function fitAll() {
+    var i, min = Infinity;
+    for (i = 0; i < cards.length; i++) cards[i].firstChild.style.fontSize = "";
+    for (i = 0; i < cards.length; i++) min = Math.min(min, fitSize(cards[i]));
+    for (i = 0; i < cards.length; i++) cards[i].firstChild.style.fontSize = min + "px";
+  }
+
+  function render() {
+    for (var i = 0; i < COUNT; i++) {
+      var card = cards[i];
+      // Multi-word clues ("ICE CREAM") go on two lines.
+      card.firstChild.textContent = twoLines(state.words[i]);
+      card.setAttribute("data-c", state.colors[i]);
+      card.setAttribute("aria-label", labelFor(i));
+    }
+    updateScores();
+    fitAll();
+  }
+
+  function cycle(i) {
+    state.colors[i] = (state.colors[i] + 1) % COLOR_NAMES.length;
+    cards[i].setAttribute("data-c", state.colors[i]);
+    cards[i].setAttribute("aria-label", labelFor(i));
+    updateScores();
+    save();
+  }
+
+  function buildGrid() {
+    for (var i = 0; i < COUNT; i++) {
+      var card = document.createElement("div");
+      card.className = "card";
+      card.setAttribute("role", "button");
+      card.tabIndex = i === 0 ? 0 : -1;
+      card.dataset.i = i;
+      var span = document.createElement("span");
+      span.className = "word";
+      card.appendChild(span);
+      card.addEventListener("click", onCardClick);
+      card.addEventListener("focus", onCardFocus);
+      grid.appendChild(card);
+      cards.push(card);
+    }
+  }
+
+  // Roving tabindex: only one card is in the tab order at a time.
+  function setRoving(i) {
+    cards[focusIndex].tabIndex = -1;
+    focusIndex = i;
+    cards[focusIndex].tabIndex = 0;
+  }
+
+  function focusCard(i, viaKeyboard) {
+    setRoving(i);
+    markKbd(cards[i], viaKeyboard);
+    cards[i].focus();
+  }
+
+  // Some TV browsers do not support :focus-visible, so keyboard focus is also marked with a class.
+  function markKbd(el, on) {
+    var prev = document.querySelectorAll(".kbd");
+    for (var k = 0; k < prev.length; k++) prev[k].classList.remove("kbd");
+    if (on) el.classList.add("kbd");
+  }
+
+  function onCardClick(e) {
+    var i = +e.currentTarget.dataset.i;
+    setRoving(i);
+    markKbd(e.currentTarget, false);
+    cycle(i);
+  }
+
+  function onCardFocus(e) { setRoving(+e.currentTarget.dataset.i); }
+
+  // ---- 60 second timer (not persisted; a refresh returns it to idle) ----
+  var TIMER_MS = 60000, WARN_SECS = 10, DONE_MS = 3000;
+  var TIMER_IDLE = "Timer";
+  var timerEnd = 0, timerTick = null, timerDoneTO = null, lastShown = -1, audioCtx = null;
+
+  function setTimerLabel(text, cls) {
+    timerBtn.textContent = text;
+    timerBtn.classList.remove("running", "warn", "done");
+    if (cls) for (var i = 0; i < cls.length; i++) timerBtn.classList.add(cls[i]);
+  }
+
+  function resetTimer() {
+    clearInterval(timerTick); clearTimeout(timerDoneTO);
+    timerTick = timerDoneTO = null; timerEnd = 0; lastShown = -1;
+    setTimerLabel(TIMER_IDLE, null);
+    timerBtn.setAttribute("aria-label", "Start 60 second timer");
+  }
+
+  function timerUpdate() {
+    // Remaining time comes from the wall clock, so missed or late ticks never cause drift.
+    var left = Math.ceil((timerEnd - Date.now()) / 1000);
+    if (left <= 0) { timerFinish(); return; }
+    if (left === lastShown) return;
+    lastShown = left;
+    var label = Math.floor(left / 60) + ":" + (left % 60 < 10 ? "0" : "") + (left % 60);
+    setTimerLabel(label, left <= WARN_SECS ? ["running", "warn"] : ["running"]);
+    timerBtn.setAttribute("aria-label", label + " remaining, press to stop");
+  }
+
+  function timerFinish() {
+    clearInterval(timerTick); timerTick = null; timerEnd = 0;
+    setTimerLabel("TIME!", ["running", "done"]);
+    timerBtn.setAttribute("aria-label", "Time is up");
+    beep();
+    timerDoneTO = setTimeout(resetTimer, DONE_MS);
+  }
+
+  function startTimer() {
+    unlockAudio();
+    resetTimer();
+    timerEnd = Date.now() + TIMER_MS;
+    timerUpdate();
+    timerTick = setInterval(timerUpdate, 200);
+  }
+
+  function isTimerActive() { return timerTick !== null || timerDoneTO !== null; }
+
+  timerBtn.addEventListener("click", function () {
+    if (isTimerActive()) resetTimer(); else startTimer();
+  });
+
+  // Browsers only allow audio after a user gesture, so the context is created on the Start press.
+  function unlockAudio() {
+    try {
+      if (!audioCtx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) { audioCtx = null; }
+  }
+
+  function beep() {
+    try {
+      if (!audioCtx) return;
+      var t = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(880, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+      gain.gain.setValueAtTime(0.35, t + 0.55);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t); osc.stop(t + 0.72);
+    } catch (e) {}
+  }
+
+  function isModalOpen() { return overlay.classList.contains("open"); }
+
+  function openModal() {
+    lastFocusBeforeModal = document.activeElement;
+    overlay.classList.add("open");
+    cancelBtn.focus();
+  }
+
+  function closeModal() {
+    overlay.classList.remove("open");
+    var target = lastFocusBeforeModal && document.body.contains(lastFocusBeforeModal) ? lastFocusBeforeModal : newGameBtn;
+    target.focus();
+  }
+
+  function startNewGame() {
+    resetTimer();
+    state = newState();
+    save();
+    render();
+    overlay.classList.remove("open");
+    focusCard(0, true);
+  }
+
+  newGameBtn.addEventListener("click", openModal);
+  cancelBtn.addEventListener("click", closeModal);
+  confirmBtn.addEventListener("click", startNewGame);
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+
+  var KEY = {
+    ArrowLeft: "left", Left: "left", ArrowRight: "right", Right: "right",
+    ArrowUp: "up", Up: "up", ArrowDown: "down", Down: "down"
+  };
+
+  document.addEventListener("keydown", function (e) {
+    var dir = KEY[e.key];
+    var active = document.activeElement;
+
+    if (isModalOpen()) {
+      if (e.key === "Escape" || e.key === "Esc" || e.key === "Backspace" || e.key === "BrowserBack") {
+        e.preventDefault(); closeModal(); return;
+      }
+      if (dir === "left" || dir === "right" || e.key === "Tab") {
+        e.preventDefault();
+        var next = active === cancelBtn ? confirmBtn : cancelBtn;
+        next.focus();
+        return;
+      }
+      if (dir) e.preventDefault();
+      return;
+    }
+
+    var idx = cards.indexOf(active);
+
+    if (idx >= 0) {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        if (!e.repeat) cycle(idx);
+        return;
+      }
+      if (!dir) return;
+      e.preventDefault();
+      var r = Math.floor(idx / SIZE), c = idx % SIZE;
+      if (dir === "up") {
+        if (r === 0) { var hb = nearestHeaderBtn(active); markKbd(hb, true); hb.focus(); return; }
+        r--;
+      } else if (dir === "down") { r = Math.min(SIZE - 1, r + 1); }
+      else if (dir === "left") { c = Math.max(0, c - 1); }
+      else if (dir === "right") { c = Math.min(SIZE - 1, c + 1); }
+      focusCard(r * SIZE + c, true);
+      return;
+    }
+
+    var h = headerBtns.indexOf(active);
+    if (h >= 0) {
+      if (!dir) return; // Enter/Space activate the button natively.
+      e.preventDefault();
+      if (dir === "down") { focusCard(nearestTopCard(active), true); return; }
+      if (dir === "left" || dir === "right") {
+        var nh = headerBtns[Math.max(0, Math.min(headerBtns.length - 1, h + (dir === "left" ? -1 : 1)))];
+        markKbd(nh, true); nh.focus();
+      }
+      return;
+    }
+
+    // Nothing focused yet (e.g. page just loaded): any arrow key lands on the grid.
+    if (dir) { e.preventDefault(); focusCard(focusIndex, true); }
+  });
+
+  function centerX(el) { var r = el.getBoundingClientRect(); return r.left + r.width / 2; }
+
+  function nearestHeaderBtn(card) {
+    var x = centerX(card), best = headerBtns[0];
+    for (var i = 1; i < headerBtns.length; i++)
+      if (Math.abs(centerX(headerBtns[i]) - x) < Math.abs(centerX(best) - x)) best = headerBtns[i];
+    return best;
+  }
+
+  function nearestTopCard(btn) {
+    var x = centerX(btn), best = 0;
+    for (var i = 1; i < SIZE; i++)
+      if (Math.abs(centerX(cards[i]) - x) < Math.abs(centerX(cards[best]) - x)) best = i;
+    return best;
+  }
+
+  document.addEventListener("mousedown", function () { markKbd(null, false); });
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitAll, 60);
+  });
+
+  resetTimer();
+  // Lock the timer's width to its widest state (in vh, so it scales) so the bar never shifts while counting.
+  (function () {
+    var w = 0, states = [[TIMER_IDLE, null], ["0:00", ["running"]], ["TIME!", ["running", "done"]]];
+    for (var i = 0; i < states.length; i++) {
+      setTimerLabel(states[i][0], states[i][1]);
+      w = Math.max(w, timerBtn.offsetWidth);
+    }
+    resetTimer();
+    timerBtn.style.minWidth = (w / window.innerHeight * 100) + "vh";
+  })();
+  buildGrid();
+  state = load() || newState(); // load() also restores the Duet checkbox before a fresh deal.
+  renderDuet();
+  save();
+  render();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+})();
+</script>
+</body>
+</html>
