@@ -120,7 +120,7 @@
 <header>
   <div class="left">
     <div class="score red" aria-live="polite">RED <span class="num" id="redScore">0</span></div>
-    <button id="timer" class="hbtn" type="button">60 Second Timer</button>
+    <button id="timer" class="hbtn" type="button">Timer</button>
   </div>
   <button id="newGame" class="hbtn" type="button">New Game</button>
   <div class="score blue" aria-live="polite">BLUE <span class="num" id="blueScore">0</span></div>
@@ -301,7 +301,7 @@
 
   // ---- 60 second timer (not persisted; a refresh returns it to idle) ----
   var TIMER_MS = 60000, WARN_SECS = 10, DONE_MS = 3000;
-  var TIMER_IDLE = "60 Second Timer";
+  var TIMER_IDLE = "Timer";
   var timerEnd = 0, timerTick = null, timerDoneTO = null, lastShown = -1, audioCtx = null;
 
   function setTimerLabel(text, cls) {
@@ -490,8 +490,16 @@
   });
 
   resetTimer();
-  // Lock the timer's width to its idle label (in vh, so it scales) so the bar never shifts while counting.
-  timerBtn.style.minWidth = (timerBtn.offsetWidth / window.innerHeight * 100) + "vh";
+  // Lock the timer's width to its widest state (in vh, so it scales) so the bar never shifts while counting.
+  (function () {
+    var w = 0, states = [[TIMER_IDLE, null], ["0:00", ["running"]], ["TIME!", ["running", "done"]]];
+    for (var i = 0; i < states.length; i++) {
+      setTimerLabel(states[i][0], states[i][1]);
+      w = Math.max(w, timerBtn.offsetWidth);
+    }
+    resetTimer();
+    timerBtn.style.minWidth = (w / window.innerHeight * 100) + "vh";
+  })();
   buildGrid();
   state = load() || newState();
   save();
